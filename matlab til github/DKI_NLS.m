@@ -50,7 +50,7 @@ mask = bvals > 0;
 X = [b_matrix, -1/6 * b_tensor];
 X_mask = X(mask,:);
 b0 = data(:,:,:,1);
-th = prctile(b0(:), 90);        % robust high-intensity reference
+th = prctile(b0(:), 90);        
 bmask = b0 > 0.3 * th;
 
 %%%%%% Output maps %%%%%%
@@ -103,51 +103,10 @@ DW = cat(2,ones(N,1),-X) \ log(data_1D);
 p0 = [exp(DW(1,:)); DW(2:end,:)];
 
 
-%%%% Helper functions %%%%
-function D = build_D_from_p(p)
-    D = [p(2) p(5) p(6);
-         p(5) p(3) p(7);
-         p(6) p(7) p(4)];
-end
-
-function D = project_to_SPD(D)
-    [V,L] = eig(D);
-    L = diag(max(diag(L), 1e-10));  
-    D = V * L * V';
-end
-
-function p = update_p_from_D(p, D)
-    p(2) = D(1,1);
-    p(3) = D(2,2);
-    p(4) = D(3,3);
-    p(5) = D(1,2);
-    p(6) = D(1,3);
-    p(7) = D(2,3);
-end
-
 for i = 1:nVox
     D0 = build_D_from_p(p0(:,i));
     D0 = project_to_SPD(D0);
     p0(:,i) = update_p_from_D(p0(:,i), D0);
-end
-
-function Kdir = directional_kurtosis(W, n)
-
-nx = n(1);
-ny = n(2);
-nz = n(3);
-
-Kdir = ...
-    W(1)*nx^4 + W(2)*ny^4 + W(3)*nz^4 ...
-    + W(4)*nx^3*ny + W(5)*ny^3*nx ...
-    + W(6)*nx^3*nz + W(7)*nz^3*nx ...
-    + W(8)*ny^3*nz + W(9)*nz^3*ny ...
-    + W(10)*nx^2*ny^2 ...
-    + W(11)*nx^2*nz^2 ...
-    + W(12)*ny^2*nz^2 ...
-    + W(13)*nx^2*ny*nz ...
-    + W(14)*ny^2*nx*nz ...
-    + W(15)*nz^2*ny*nx;
 end
 
 
@@ -199,10 +158,6 @@ parfor idx=1:nVox
     n1 = V(:,1);
     Wpar = directional_kurtosis(W, n1);
     
-    % Kpar1 = directional_kurtosis(W, n1);
-    % Kpar2 = directional_kurtosis(W, -n1);
-    % 
-    % Kpar_map(idx) = mean([Kpar1, Kpar2]) / (Dpar^2 + eps);
     if Dpar > 0
         Kpar_map(idx) = Wpar * (MD^2) / (Dpar^2);
     end
@@ -240,12 +195,6 @@ FA_vol(bmask) = FA_map;
 W_vol(bmask)  = W_map;
 Kpar_vol(bmask)  = Kpar_map;
 Kperp_vol(bmask) = Kperp_map;
-
-%save("DKI_NLS.mat", "MD_vol", "FA_vol", "W_vol", "Kpar_vol", "Kperp_vol")
-
-% info.Filename = 'FA_output.nii.gz';
-% 
-% niftiwrite(FA_vol, 'FA_output', info, 'Compressed', true);
 
 slice = round(nz/2);
 
@@ -297,26 +246,19 @@ axis image off;
 colormap turbo;
 colorbar;
 title(['K perpendicular - Slice ', num2str(slice)])
+
+
 %%
 b0 = mean(data(:,:,:,bvals==0),4);
 mask = b0 > 0.1*max(b0(:));
 
-% WM_mask = FA_vol > 0.3;
-
-WM_mask = ...
-    (FA_vol > 0.5) & ...
-    (MD_vol > 0.5e-3) & ...
-    (MD_vol < 1.1e-3);
-% 
-% WM_mask = bwmorph3(WM_mask,'erode',1);
+WM_mask = FA_vol > 0.3;
 
 FA_vals = FA_vol(WM_mask);
 MD_vals = MD_vol(WM_mask);
 W_vals = W_vol(WM_mask);
 Kpar_vals = Kpar_vol(WM_mask);
 Kper_vals = Kperp_vol(WM_mask);
-
-
 
 figure;
 histogram(FA_vals, 100, 'Normalization', 'probability');
@@ -355,13 +297,7 @@ title('K perpendicular distribution');
 
 %%
 
-% S_meas_mat = data_1D';   % now: voxels × gradients
-% S_fit_mat  = S_fit;      % voxels × gradients
-% x = S_meas_mat(:);
-% y = S_fit_mat(:);
-
 slice = round(size(data,3)/2);
-%data_slice=data_1D';
 data_slice = squeeze(data(:,:,slice,:));   % (x,y,g)
 S_fit_slice  = squeeze(S_fit(:,:,slice,:));  % (x,y,g)
 x=data_slice(:);
@@ -401,20 +337,47 @@ xlim([-10 max(x)+10])
 ylim([-10 max(y)+10])
 toc;
 
-% 
-% figure;
-% histogram(S_meas_norm, 100, 'Normalization', 'probability')
-% hold on
-% histogram(S_fit_norm, 100, 'Normalization', 'probability')
-% legend('Measured','Fitted')
-% title('Signal distributions (normalized)')
-% xlabel('Normalized signal value')
-% ylabel('Probability')
-% grid on
-% 
-% 
-% R_lte = corrcoef(S_meas, S_fitv);
-% r_lte = R_lte(1,2);
-% 
-% disp(r_lte)
-% 
+
+
+
+%%%% Helper functions %%%%
+function D = build_D_from_p(p)
+    D = [p(2) p(5) p(6);
+         p(5) p(3) p(7);
+         p(6) p(7) p(4)];
+end
+
+function D = project_to_SPD(D)
+    [V,L] = eig(D);
+    L = diag(max(diag(L), 1e-10));  
+    D = V * L * V';
+end
+
+function p = update_p_from_D(p, D)
+    p(2) = D(1,1);
+    p(3) = D(2,2);
+    p(4) = D(3,3);
+    p(5) = D(1,2);
+    p(6) = D(1,3);
+    p(7) = D(2,3);
+end
+
+function Kdir = directional_kurtosis(W, n)
+
+nx = n(1);
+ny = n(2);
+nz = n(3);
+
+Kdir = ...
+    W(1)*nx^4 + W(2)*ny^4 + W(3)*nz^4 ...
+    + W(4)*nx^3*ny + W(5)*ny^3*nx ...
+    + W(6)*nx^3*nz + W(7)*nz^3*nx ...
+    + W(8)*ny^3*nz + W(9)*nz^3*ny ...
+    + W(10)*nx^2*ny^2 ...
+    + W(11)*nx^2*nz^2 ...
+    + W(12)*ny^2*nz^2 ...
+    + W(13)*nx^2*ny*nz ...
+    + W(14)*ny^2*nx*nz ...
+    + W(15)*nz^2*ny*nx;
+end
+
