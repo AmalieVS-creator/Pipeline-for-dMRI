@@ -58,12 +58,7 @@ end
 
 [nx, ny, nz, ~] = size(data_lte);
 
-%%%%% Model %%%%%
-% options = optimoptions('lsqcurvefit', ...
-%     'Display','off', ...
-%     'MaxIterations',20);
-% 
-% iso_model = @(p,b) p(1).*exp(-b.*p(2) + (1/6).*b.^2.*(p(2).^2).*p(3));
+
 
 function [F,J] = iso_model_jac(p,b)
 
@@ -71,11 +66,8 @@ function [F,J] = iso_model_jac(p,b)
     S0 = p(1);
     D  = p(2);
     K  = p(3);
-
-    % Exponential term
+    
     E = exp(-b.*D + (1/6).*b.^2.*D.^2.*K);
-
-    % Signal model
     F = S0 .* E;
 
     % Analytical Jacobian
@@ -107,16 +99,12 @@ b0 = data_lte(:,:,:,1);
 th = prctile(b0(:), 90);
 bmask = b0 > 0.3 * th;
 
-
-% reshape
 data_lte_1D = permute(data_lte,[4,1,2,3]);
 data_ste_1D = permute(data_ste,[4,1,2,3]);
 
-% apply mask ONCE
 data_lte_1D = data_lte_1D(:, bmask);
 data_ste_1D = data_ste_1D(:, bmask);
 
-% now safe
 nVox = size(data_lte_1D,2);
 
 
@@ -125,15 +113,10 @@ K_tot_map = zeros(nVox,1);
 K_iso_map = zeros(nVox,1);
 K_aniso_map = zeros(nVox,1);
 
-% S_meas_lte_all = zeros(length(uniqueB_lte), nVox);
-%S_meas_lte = zeros(length(bvals_lte), nVox);
 S_fit_lte  = zeros(length(bvals_lte), nVox);
-% S_fit_lte_all  = zeros(length(uniqueB_lte), nVox);
 
-% S_meas_ste_all = zeros(length(uniqueB_ste), nVox);
-%S_meas_ste = zeros(length(bvals_ste), nVox);
 S_fit_ste  = zeros(length(bvals_ste), nVox);
-% S_fit_ste_all  = zeros(length(uniqueB_ste), nVox);
+
 
 %%%%% Grouping %%%%%
 uniqueB_lte = unique(bvals_lte);
@@ -162,19 +145,6 @@ parfor idx = 1:nVox
         S_avg_ste(j) = mean(S_ste(shell_idx_ste{j}));
     end
 
-    % S_avg_lte = S_avg_lte / S_avg_lte(1);
-    % S_avg_ste = S_avg_ste / S_avg_ste(1);
-
-    % p_lte = lsqcurvefit(iso_model, ...
-    %     [S_avg_lte(1), 1e-3, 1], ...
-    %     uniqueB_lte, S_avg_lte, ...
-    %     [0 0 -2], [Inf 0.003 5], options);
-    % 
-    % p_ste = lsqcurvefit(iso_model, ...
-    %     [S_avg_ste(1), 1e-3, 1], ...
-    %     uniqueB_ste, S_avg_ste, ...
-    %     [0 0 -2], [Inf 0.003 5], options);
-
     p_lte = lsqcurvefit(@(p,b) iso_model_jac(p,b), ...
     [S_avg_lte(1), 1e-3, 1], ...
     uniqueB_lte, ...
@@ -199,10 +169,6 @@ parfor idx = 1:nVox
     end
 
     % Korrelation plot
-    % S_meas_lte(:,idx) = S_lte;
-    % S_meas_ste(:,idx) = S_ste;
-    % S_fit_lte(:, idx) = iso_model_jac(p_lte, bvals_lte);
-    % S_fit_ste(:, idx) = iso_model_jac(p_ste, bvals_ste);
     [F_lte, ~] = iso_model_jac(p_lte, bvals_lte);
     [F_ste, ~] = iso_model_jac(p_ste, bvals_ste);
     
@@ -284,13 +250,9 @@ end
 
 
 slice = round(size(data_lte,3)/2);
-%data_slice=data_1D';
-% data_slice_lte = squeeze(data_lte(:,:,slice,:));   % (x,y,g)
-% S_fit_slice_lte  = squeeze(S_fit_lte(:,:,slice,:));  % (x,y,g)
-% x_lte=data_slice_lte(:);
-% y_lte=S_fit_slice_lte(:);
 
-% --- LTE slice ---
+
+% LTE 
 data_slice_lte = squeeze(data_lte(:,:,slice,:));
 fit_slice_lte  = squeeze(S_fit_lte_vol(:,:,slice,:));
 
@@ -337,54 +299,8 @@ xlim([-10 max(x_lte)+10])
 ylim([-10 max(y_lte)+10])
 toc;
 
-%%% --- Linear regression ---
-% P_lte = polyfit(S_meas_lte, S_fitv_lte, 1);
-% 
-% x_line_lte = linspace(min(S_meas_lte), max(S_meas_lte), 100);
-% yfit_lte = polyval(P_lte, x_line_lte);
 
-% Fit regression
-% P_lte = polyfit(S_meas_lte_scat, S_fit_lte_scat, 1);
-% 
-% % Line for plotting
-% x_line_lte = linspace(min(S_meas_lte_scat), max(S_meas_lte_scat), 100);
-% yfit_lte = polyval(P_lte, x_line_lte);
-% 
-% scale_lte = max(S_meas_lte);
-% 
-% S_meas_norm_lte = S_meas_lte / scale_lte;
-% S_fit_norm_lte  = S_fit_lte  / scale_lte;
-% 
-% few_points_lte = randperm(numel(S_meas_norm_lte), ...
-%     min(50000,numel(S_meas_norm_lte)));
-% 
-% S_meas_norm_lte = S_meas_norm_lte(few_points_lte);
-% S_fit_norm_lte  = S_fit_norm_lte(few_points_lte);
-
-% figure;
-% histogram(S_meas_norm_lte, 100, 'Normalization', 'probability')
-% hold on
-% histogram(S_fit_norm_lte, 100, 'Normalization', 'probability')
-% legend('Measured','Fitted')
-% title('Signal distributions (normalized)')
-% xlabel('Signal value')
-% ylabel('Probability')
-% grid on
-
-
-%%% STE %%%%
-% S_measss_ste = data_lte_1D';   % now: voxels × gradients
-% % S_fit_lte  = S_fit_lte;      % voxels × gradients
-% x_ste = S_measss_ste(:);
-% y_ste = S_fit_ste(:);
-% data_slice_ste = squeeze(data_ste(:,:,slice,:));   % (x,y,g)
-% S_fit_slice_ste  = squeeze(S_fit_ste(:,:,slice,:));  % (x,y,g)
-% x_ste=data_slice_ste(:);
-% y_ste=S_fit_slice_ste(:);
-
-
-
-% --- LTE slice ---
+% STE 
 data_slice_ste = squeeze(data_ste(:,:,slice,:));
 fit_slice_ste  = squeeze(S_fit_ste_vol(:,:,slice,:));
 
@@ -431,64 +347,3 @@ xlim([-10 max(x_ste)+10])
 ylim([-10 max(y_ste)+10])
 toc;
 
-
-% %%% combined %%%%
-% % Fit regression
-% P_comb = polyfit(S_meas_comb_scat, S_fit_comb_scat, 1);
-% 
-% % Line for plotting
-% x_line_comb = linspace(min(S_meas_comb_scat), max(S_meas_comb_scat), 100);
-% yfit_comb = polyval(P_comb, x_line_comb);
-% 
-% scale_comb = max(S_meas_comb);
-% 
-% S_meas_norm_comb = S_meas_comb / scale_comb;
-% S_fit_norm_comb  = S_fit_comb  / scale_comb;
-% 
-% few_points_comb = randperm(numel(S_meas_norm_comb), ...
-%     min(50000,numel(S_meas_norm_comb)));
-% 
-% S_meas_norm_comb = S_meas_norm_comb(few_points_comb);
-% S_fit_norm_comb  = S_fit_norm_comb(few_points_comb);
-% 
-% 
-% figure;
-% scatter_kde(S_meas_comb_scat, S_fit_comb_scat, ...
-%     'MarkerSize', 5, 'filled')
-% colorbar();
-% hold on;
-% plot(x_line_comb, yfit_comb, 'r-.', 'LineWidth', 0.5)
-% axis equal
-% grid on
-% xlabel('Measured signal')
-% ylabel('Fitted signal')
-% title('Correlationsplot of STE+LTE data')
-% 
-% xlim([0 max(S_meas_comb_scat)])
-% ylim([0 max(S_fit_comb_scat)])
-% 
-% figure;
-% histogram(S_meas_norm_comb, 100, 'Normalization','probability')
-% hold on
-% histogram(S_fit_norm_comb, 100, 'Normalization','probability')
-% legend('Measured','Fitted')
-% title('Signal distributions (normalized)')
-% xlabel('Signal value')
-% ylabel('Probability')
-% grid on
-% 
-% %%
-% %%% Pearsons correlations coefficient
-% R_lte = corrcoef(S_meas_lte_scat, S_fit_lte_scat);
-% r_lte = R_lte(1,2);
-% 
-% R_ste = corrcoef(S_meas_ste_scat, S_fit_ste_scat);
-% r_ste = R_ste(1,2);
-% 
-% R_comb = corrcoef(S_meas_comb_scat, S_fit_comb_scat);
-% r_comb = R_comb(1,2);
-% 
-% disp(r_lte)
-% disp(r_ste)
-% disp(r_comb)
-% 
