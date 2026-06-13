@@ -71,7 +71,6 @@ for x=1:nx
     for y = 1:ny
         for z = 1:nz
             S = double(squeeze(data(x, y, z, :))); 
-            %S0=double(S(1));
             S0 = mean(S(~mask));
 
             if any(S(mask) <= 0)
@@ -84,7 +83,6 @@ for x=1:nx
 
             Y=-log(S/S0);
             Y_fit=Y(mask);
-            %Y = -log(max(S/S0, 1e-10));
             dw=X_mask\Y_fit;
 
             % Save signal for korrelation plot
@@ -229,7 +227,7 @@ for x=1:nx
     end
 end
 
-%slice=30;
+
 slice=round(size(data, 3)/2);
 
 % quiver plot start
@@ -313,7 +311,8 @@ hold on
 q=quiver(Xr, Yr, V_rot, -U_rot, 0, 'r', 'linewidth',1);
 q.ShowArrowHead = 'off';
 q.Marker = 'none';
-%%
+
+%%Histogram analyses
 b0 = mean(data(:,:,:,bvals==0),4);
 mask = b0 > 0.2*max(b0(:));
 
@@ -342,37 +341,29 @@ histogram(MD_vals, 100, 'Normalization', 'probability');
 xlabel('MD (mm^2/s)');
 ylabel('Voxel count');
 title('MD distribution');
-% 
-% figure;
-% histogram(W_vals, 100, 'Normalization', 'pdf');
-% xlabel('W tot');
-% ylabel('Voxel count');
-% title('W tot distribution');
-% 
-% figure;
-% histogram(Kpar_vals, 100, 'Normalization', 'pdf');
-% xlabel('K par');
-% ylabel('Voxel count');
-% title('K parallel distribution');
-% 
-% figure;
-% histogram(Kper_vals, 100, 'Normalization', 'pdf');
-% xlabel('K per');
-% ylabel('Voxel count');
-% title('K perpendicular distribution');
+
+figure;
+histogram(W_vals, 100, 'Normalization', 'pdf');
+xlabel('W tot');
+ylabel('Voxel count');
+title('W tot distribution');
+ 
+figure;
+histogram(Kpar_vals, 100, 'Normalization', 'pdf');
+xlabel('K par');
+ylabel('Voxel count');
+title('K parallel distribution');
+ 
+figure;
+histogram(Kper_vals, 100, 'Normalization', 'pdf');
+xlabel('K per');
+ylabel('Voxel count');
+title('K perpendicular distribution');
 
 
 %%
 %%% Korrelation plot %%%
 
-% 
-% % Histogram
-% scale = max(S_meas);
-% 
-% S_meas_norm = S_meas / scale;
-% S_fit_norm  = S_fitv / scale;
-
-slice = round(size(data,3)/2);
 data_slice = squeeze(data(:,:,slice,:));   % (x,y,g)
 S_fit_slice  = squeeze(S_fit(:,:,slice,:));  % (x,y,g)
 x=data_slice(:);
@@ -412,18 +403,3 @@ xlabel('S_{meas}'); ylabel('S_{fit}');
 title(sprintf('Correlation plot DKI LLS, \\rho = %.6f',corr(x,y)))
 xlim([-10 max(x)+10])
 ylim([-10 max(y)+10])
-
-% figure;
-% histogram(S_meas_norm, 100, 'Normalization', 'probability')
-% hold on
-% histogram(S_fit_norm, 100, 'Normalization', 'probability')
-% legend('Measured','Fitted')
-% title('Signal distributions ')
-% xlabel('Normalized signal value')
-% ylabel('Probability')
-% grid on
-% 
-% R_lte = corrcoef(S_meas_scat, S_fit_scat);
-% r_lte = R_lte(1,2);
-% 
-% disp(r_lte)
